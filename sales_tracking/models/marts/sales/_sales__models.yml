@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: fct_target_attainment
+    description: >
+      Quarterly target attainment at the salesperson x account_office x quarter
+      grain. Compares quarter_target to won ARR (deals won and closed in the
+      quarter, valid accounts only). Targets with no matching won revenue show
+      0 attainment via a left join.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - salesperson_id
+              - account_office
+              - target_quarter
+    columns:
+      - name: salesperson_id
+        description: "Foreign key to dim_salespeople."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_salespeople')
+                field: salesperson_id
+      - name: account_office
+        description: "Office the target applies to."
+        tests:
+          - not_null
+      - name: target_quarter
+        description: "Target quarter, YYYYQn."
+        tests:
+          - not_null
+      - name: quarter_target
+        description: "Revenue target for the quarter."
+      - name: won_arr
+        description: "New ARR closed in the quarter = new business + upsell (>= 0)."
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: won_arr_new_business
+        description: "Portion of won_arr from new business deals."
+      - name: won_arr_upsell
+        description: "Portion of won_arr from upsell (expansion) deals."
+      - name: attainment_pct
+        description: "won_arr as a percentage of quarter_target."
+      - name: is_target_met
+        description: "True when won_arr >= quarter_target."
+
+  - name: mart_office_performance
+    description: >
+      Office-level Q1 2026 performance and the operational drivers behind the
+      gap to target: win rate, average won deal size, sales cycle, activity
+      intensity and pipeline created. One row per office. Primary deliverable
+      for the Head of Sales.
+    columns:
+      - name: account_office
+        description: "Primary key (office/region)."
+        tests:
+          - unique
+          - not_null
+      - name: won_arr
+        description: "New ARR closed in the quarter (new business + upsell)."
+      - name: won_arr_new_business
+        description: "Portion of won_arr from new business deals."
+      - name: won_arr_upsell
+        description: "Portion of won_arr from upsell (expansion) deals."
+      - name: attainment_pct
+        description: "won_arr as a percentage of the office target."
+      - name: win_rate_pct
+        description: "Won deals as a percentage of closed deals in the quarter."

@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: dim_accounts
+    description: "Account dimension. One row per account."
+    columns:
+      - name: account_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: account_office
+        description: "Office/region the account belongs to."
+
+  - name: dim_salespeople
+    description: "Salesperson dimension. One row per salesperson."
+    columns:
+      - name: salesperson_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_opportunities
+    description: >
+      Opportunity fact table. One row per opportunity with revenue, status,
+      attribution (account office + salesperson), sales cycle, and activity
+      counts. Core grain for all sales analysis.
+    columns:
+      - name: opportunity_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: salesperson_id
+        description: "Foreign key to dim_salespeople."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_salespeople')
+                field: salesperson_id
+      - name: arr
+        description: "Annual recurring revenue for the opportunity."
+        tests:
+          - not_null
+      - name: status
+        description: "Deal stage."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['created', 'qualified', 'won', 'lost']
+      - name: opportunity_type
+        description: "new business or upsell."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['new business', 'upsell']
+
+  - name: fct_activities
+    description: "Activity fact table (deduplicated). One row per activity, with opportunity attribution."
+    columns:
+      - name: activity_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: opportunity_id
+        description: "Foreign key to fct_opportunities."
+        tests:
+          - relationships:
+              arguments:
+                to: ref('fct_opportunities')
+                field: opportunity_id

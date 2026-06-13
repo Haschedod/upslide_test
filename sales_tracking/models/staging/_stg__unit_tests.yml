@@ -1,0 +1,86 @@
+version: 2
+
+unit_tests:
+  - name: stg_accounts_passthrough
+    description: "Columns map straight through from the raw seed."
+    model: stg_accounts
+    given:
+      - input: ref('accounts')
+        rows:
+          - {account_id: ACC1, account_name: "Acme", account_office: France}
+    expect:
+      rows:
+        - {account_id: ACC1, account_name: "Acme", account_office: France}
+
+  - name: stg_salespeople_renames_name
+    description: "name is renamed to salesperson_name."
+    model: stg_salespeople
+    given:
+      - input: ref('salespeople')
+        rows:
+          - {salesperson_id: SP1, name: "Alice", salesperson_office: France}
+    expect:
+      rows:
+        - {salesperson_id: SP1, salesperson_name: "Alice", salesperson_office: France}
+
+  - name: stg_opportunities_parses_all_date_formats
+    description: "clean_date normalises the 4 raw date formats to DATE."
+    model: stg_opportunities
+    given:
+      - input: ref('opportunities')
+        rows:
+          - {opportunity_id: O_ISO, created_date: "2025-01-16", closed_date: "2025-01-16", arr: "1000", status: won, source: marketing, type: upsell}
+          - {opportunity_id: O_EU, created_date: "25/01/2025", closed_date: "25/01/2025", arr: "1000", status: won, source: marketing, type: upsell}
+          - {opportunity_id: O_TS, created_date: "2025-01-28 00:00:00", closed_date: "2025-01-28 00:00:00", arr: "1000", status: won, source: marketing, type: upsell}
+          - {opportunity_id: O_SLASH, created_date: "2025/04/06", closed_date: "2025/04/06", arr: "1000", status: won, source: marketing, type: upsell}
+    expect:
+      rows:
+        - {opportunity_id: O_ISO, created_date: "2025-01-16", closed_date: "2025-01-16"}
+        - {opportunity_id: O_EU, created_date: "2025-01-25", closed_date: "2025-01-25"}
+        - {opportunity_id: O_TS, created_date: "2025-01-28", closed_date: "2025-01-28"}
+        - {opportunity_id: O_SLASH, created_date: "2025-04-06", closed_date: "2025-04-06"}
+
+  - name: stg_opportunities_cleans_fields
+    description: "arr cast to int, empty source -> NULL lead_source, type -> opportunity_type."
+    model: stg_opportunities
+    given:
+      - input: ref('opportunities')
+        rows:
+          - {opportunity_id: O1, created_date: "2025-01-16", closed_date: "2025-02-16", arr: "30000", status: won, source: "", type: "new business"}
+    expect:
+      rows:
+        - {opportunity_id: O1, arr: 30000, lead_source: null, opportunity_type: "new business", status: won}
+
+  - name: stg_activities_dedupes_keeping_earliest
+    description: "Duplicate activity_id collapses to the earliest activity_date."
+    model: stg_activities
+    given:
+      - input: ref('activities')
+        rows:
+          - {activity_id: A1, opportunity_id: O1, activity_type: call, activity_date: "2025-02-01"}
+          - {activity_id: A1, opportunity_id: O1, activity_type: call, activity_date: "2025-01-01"}
+    expect:
+      rows:
+        - {activity_id: A1, opportunity_id: O1, activity_type: call, activity_date: "2025-01-01"}
+
+  - name: stg_activities_nullifies_empty_type
+    description: "Empty activity_type becomes NULL."
+    model: stg_activities
+    given:
+      - input: ref('activities')
+        rows:
+          - {activity_id: A2, opportunity_id: O1, activity_type: "", activity_date: "2025-01-01"}
+    expect:
+      rows:
+        - {activity_id: A2, activity_type: null}
+
+  - name: stg_targets_casts_target
+    description: "quarter_target is cast to integer."
+    model: stg_targets
+    given:
+      - input: ref('targets')
+        rows:
+          - {salesperson_id: SP1, account_office: France, target_quarter: "2026Q1", quarter_target: "85000"}
+    expect:
+      rows:
+        - {salesperson_id: SP1, account_office: France, target_quarter: "2026Q1", quarter_target: 85000}

@@ -1,0 +1,26 @@
+name: 'sales_tracking'
+version: '1.0.0'
+
+profile: 'sales_tracking'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  sales_tracking:
+    staging:
+      +materialized: view
+    intermediate:
+      # views (not ephemeral) so they exist as relations that unit tests can
+      # introspect when used as mocked inputs to downstream models
+      +materialized: view
+    marts:
+      +materialized: table

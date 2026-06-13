@@ -1,0 +1,53 @@
+version: 2
+
+unit_tests:
+  - name: fct_target_attainment_met
+    description: >
+      Only won + valid-account deals count toward attainment; lost and orphan
+      deals are excluded. Attainment math and is_target_met resolve.
+    model: fct_target_attainment
+    given:
+      - input: ref('stg_targets')
+        rows:
+          - {salesperson_id: SP1, account_office: France, target_quarter: "2026Q1", quarter_target: 100000}
+      - input: ref('fct_opportunities')
+        rows:
+          - {opportunity_id: O1, salesperson_id: SP1, account_office: France, closed_quarter: "2026Q1", arr: 60000, opportunity_type: "new business", is_won: true, is_valid_account: true}
+          - {opportunity_id: O2, salesperson_id: SP1, account_office: France, closed_quarter: "2026Q1", arr: 60000, opportunity_type: upsell, is_won: true, is_valid_account: true}
+          - {opportunity_id: O3, salesperson_id: SP1, account_office: France, closed_quarter: "2026Q1", arr: 99999, opportunity_type: "new business", is_won: false, is_valid_account: true}
+          - {opportunity_id: O4, salesperson_id: SP1, account_office: France, closed_quarter: "2026Q1", arr: 500000, opportunity_type: "new business", is_won: true, is_valid_account: false}
+    expect:
+      rows:
+        - {salesperson_id: SP1, account_office: France, target_quarter: "2026Q1", quarter_target: 100000, won_arr: 120000, won_arr_new_business: 60000, won_arr_upsell: 60000, won_deals: 2, gap_to_target: 20000, attainment_pct: 120.0, is_target_met: true}
+
+  - name: fct_target_attainment_zero_when_no_wins
+    description: "A target with no matching won revenue shows 0 attainment via the left join."
+    model: fct_target_attainment
+    given:
+      - input: ref('stg_targets')
+        rows:
+          - {salesperson_id: SP2, account_office: UK, target_quarter: "2026Q1", quarter_target: 50000}
+      - input: ref('fct_opportunities')
+        rows: []
+    expect:
+      rows:
+        - {salesperson_id: SP2, account_office: UK, target_quarter: "2026Q1", quarter_target: 50000, won_arr: 0, won_deals: 0, gap_to_target: -50000, attainment_pct: 0.0, is_target_met: false}
+
+  - name: mart_office_performance_rollup
+    description: >
+      Office rollup for 2026Q1: targets and won ARR sum across reps, and the
+      operational drivers (win rate, deal size, cycle, activities, pipeline)
+      aggregate from closed/created opportunities.
+    model: mart_office_performance
+    given:
+      - input: ref('fct_target_attainment')
+        rows:
+          - {salesperson_id: SP1, account_office: France, target_quarter: "2026Q1", quarter_target: 60000, won_arr: 70000, won_arr_new_business: 50000, won_arr_upsell: 20000, is_target_met: true}
+          - {salesperson_id: SP2, account_office: France, target_quarter: "2026Q1", quarter_target: 40000, won_arr: 20000, won_arr_new_business: 20000, won_arr_upsell: 0, is_target_met: false}
+      - input: ref('fct_opportunities')
+        rows:
+          - {opportunity_id: O1, account_office: France, closed_quarter: "2026Q1", created_quarter: "2026Q1", is_closed: true, is_won: true, status: won, arr: 70000, sales_cycle_days: 30, total_activities: 4, is_valid_account: true}
+          - {opportunity_id: O2, account_office: France, closed_quarter: "2026Q1", created_quarter: "2026Q1", is_closed: true, is_won: false, status: lost, arr: 20000, sales_cycle_days: 10, total_activities: 2, is_valid_account: true}
+    expect:
+      rows:
+        - {account_office: France, quarter_target: 100000, won_arr: 90000, won_arr_new_business: 70000, won_arr_upsell: 20000, gap_to_target: -10000, attainment_pct: 90.0, is_target_met: false, salespeople_with_target: 2, salespeople_on_target: 1, closed_deals: 2, won_deals: 1, lost_deals: 1, win_rate_pct: 50.0, avg_won_deal_size: 70000.0, avg_sales_cycle_days: 30.0, avg_activities_per_closed_deal: 3.0, opportunities_created: 2}

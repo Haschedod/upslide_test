@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: stg_accounts
+    description: "Staging model for customer accounts. One row per account."
+    columns:
+      - name: account_id
+        description: "Primary key. Unique account identifier."
+        tests:
+          - unique
+          - not_null
+      - name: account_name
+        description: "Display name of the account."
+      - name: account_office
+        description: "Office/region the account belongs to."
+
+  - name: stg_salespeople
+    description: "Staging model for salespeople. One row per salesperson."
+    columns:
+      - name: salesperson_id
+        description: "Primary key. Unique salesperson identifier."
+        tests:
+          - unique
+          - not_null
+      - name: salesperson_name
+        description: "Salesperson full name."
+      - name: salesperson_office
+        description: "Office/region the salesperson belongs to."
+
+  - name: stg_opportunities
+    description: "Staging model for sales opportunities (deals). One row per opportunity. Mixed source date formats are normalised to DATE."
+    columns:
+      - name: opportunity_id
+        description: "Primary key. Unique opportunity identifier."
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: "Foreign key to stg_accounts. Some rows reference non-existent (orphan) accounts; kept and flagged downstream via is_valid_account."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_accounts')
+                field: account_id
+              config:
+                severity: warn
+      - name: salesperson_id
+        description: "Foreign key to stg_salespeople."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salespeople')
+                field: salesperson_id
+      - name: created_date
+        description: "Date the opportunity was created."
+      - name: closed_date
+        description: "Date the opportunity was closed (won or lost)."
+      - name: arr
+        description: "Annual recurring revenue associated with the opportunity."
+      - name: status
+        description: "Current stage of the opportunity."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['created', 'qualified', 'won', 'lost']
+      - name: lead_source
+        description: "How the opportunity was sourced. NULL when unknown."
+      - name: opportunity_type
+        description: "Whether the deal is new business or an upsell."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['new business', 'upsell']
+
+  - name: stg_activities
+    description: "Staging model for sales activities. One row per activity logged against an opportunity."
+    columns:
+      - name: activity_id
+        description: "Primary key. Unique activity identifier."
+        tests:
+          - unique
+          - not_null
+      - name: opportunity_id
+        description: "Foreign key to stg_opportunities."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_opportunities')
+                field: opportunity_id
+      - name: activity_type
+        description: "Type of activity (call, linkedin, meeting_online, meeting_f2f). NULL when unknown."
+      - name: activity_date
+        description: "Date the activity took place."
+
+  - name: stg_targets
+    description: "Staging model for quarterly sales targets. One row per salesperson, office and quarter."
+    columns:
+      - name: salesperson_id
+        description: "Foreign key to stg_salespeople."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_salespeople')
+                field: salesperson_id
+      - name: account_office
+        description: "Office/region the target applies to."
+      - name: target_quarter
+        description: "Quarter the target applies to (e.g. 2026Q1)."
+      - name: quarter_target
+        description: "Revenue target for the quarter."

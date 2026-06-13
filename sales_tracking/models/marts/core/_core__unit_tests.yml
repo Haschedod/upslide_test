@@ -1,0 +1,63 @@
+version: 2
+
+unit_tests:
+  - name: dim_accounts_passthrough
+    model: dim_accounts
+    given:
+      - input: ref('stg_accounts')
+        rows:
+          - {account_id: ACC1, account_name: "Acme", account_office: France}
+    expect:
+      rows:
+        - {account_id: ACC1, account_name: "Acme", account_office: France}
+
+  - name: dim_salespeople_passthrough
+    model: dim_salespeople
+    given:
+      - input: ref('stg_salespeople')
+        rows:
+          - {salesperson_id: SP1, salesperson_name: "Alice", salesperson_office: France}
+    expect:
+      rows:
+        - {salesperson_id: SP1, salesperson_name: "Alice", salesperson_office: France}
+
+  - name: fct_opportunities_coalesces_activity_counts
+    description: "Opportunities with no activities get zeroed counts (left join)."
+    model: fct_opportunities
+    given:
+      - input: ref('int_opportunities_enriched')
+        rows:
+          - {opportunity_id: O1, account_id: ACC1, salesperson_id: SP1, arr: 30000, status: won, is_won: true, is_closed: true, is_valid_account: true}
+      - input: ref('int_activities_per_opportunity')
+        rows: []
+    expect:
+      rows:
+        - {opportunity_id: O1, total_activities: 0, calls: 0, linkedin_touches: 0, meetings_online: 0, meetings_f2f: 0}
+
+  - name: fct_opportunities_joins_activity_counts
+    description: "Activity rollup is attached to the matching opportunity."
+    model: fct_opportunities
+    given:
+      - input: ref('int_opportunities_enriched')
+        rows:
+          - {opportunity_id: O1, account_id: ACC1, salesperson_id: SP1, arr: 30000, status: won, is_won: true, is_closed: true, is_valid_account: true}
+      - input: ref('int_activities_per_opportunity')
+        rows:
+          - {opportunity_id: O1, total_activities: 5, calls: 3, linkedin_touches: 1, meetings_online: 1, meetings_f2f: 0, first_activity_date: "2025-01-01", last_activity_date: "2025-01-09"}
+    expect:
+      rows:
+        - {opportunity_id: O1, total_activities: 5, calls: 3, linkedin_touches: 1, meetings_online: 1, meetings_f2f: 0}
+
+  - name: fct_activities_attributes_from_opportunity
+    description: "Each activity inherits office/salesperson/status from its opportunity."
+    model: fct_activities
+    given:
+      - input: ref('stg_activities')
+        rows:
+          - {activity_id: A1, opportunity_id: O1, activity_type: call, activity_date: "2025-01-01"}
+      - input: ref('int_opportunities_enriched')
+        rows:
+          - {opportunity_id: O1, salesperson_id: SP1, account_id: ACC1, account_office: France, salesperson_office: France, status: won, opportunity_type: upsell}
+    expect:
+      rows:
+        - {activity_id: A1, opportunity_id: O1, salesperson_id: SP1, account_id: ACC1, account_office: France, opportunity_status: won, opportunity_type: upsell}

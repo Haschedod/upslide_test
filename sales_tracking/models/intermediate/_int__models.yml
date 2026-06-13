@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: int_opportunities_enriched
+    description: >
+      Opportunities joined to their account and salesperson, enriched with
+      analysis-ready flags (is_won, is_closed, is_valid_account), sales cycle
+      length and YYYYQn quarter labels. One row per opportunity.
+    columns:
+      - name: opportunity_id
+        description: "Primary key."
+        tests:
+          - unique
+          - not_null
+      - name: account_office
+        description: "Office of the related account; NULL for orphan accounts."
+      - name: is_valid_account
+        description: "True when the opportunity's account exists in stg_accounts."
+      - name: is_won
+        description: "True when status = 'won'."
+      - name: is_closed
+        description: "True when status is 'won' or 'lost'."
+      - name: closed_quarter
+        description: "Quarter the deal closed, formatted YYYYQn (e.g. 2026Q1)."
+
+  - name: int_activities_per_opportunity
+    description: "Activity counts and mix aggregated to one row per opportunity."
+    columns:
+      - name: opportunity_id
+        description: "Primary key. Foreign key to opportunities."
+        tests:
+          - unique
+          - not_null
+      - name: total_activities
+        description: "Total number of activities logged against the opportunity."

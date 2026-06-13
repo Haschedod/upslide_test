@@ -1,0 +1,8 @@
+# dbt pipeline
+dbt-core==1.11.11
+dbt-duckdb==1.10.1
+
+# reporting / dashboards (reports/generate_dashboards.py)
+duckdb==1.5.3
+pandas==3.0.3
+matplotlib==3.11.0

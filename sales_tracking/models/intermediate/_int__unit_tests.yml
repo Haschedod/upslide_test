@@ -1,0 +1,49 @@
+version: 2
+
+unit_tests:
+  - name: int_opportunities_enriched_flags_and_cycle
+    description: "Joins enrich office/name, flags resolve, sales cycle and quarter labels compute."
+    model: int_opportunities_enriched
+    given:
+      - input: ref('stg_opportunities')
+        rows:
+          - {opportunity_id: O1, account_id: ACC1, salesperson_id: SP1, created_date: "2026-01-10", closed_date: "2026-02-09", arr: 30000, status: won, lead_source: marketing, opportunity_type: upsell}
+      - input: ref('stg_accounts')
+        rows:
+          - {account_id: ACC1, account_name: "Acme", account_office: France}
+      - input: ref('stg_salespeople')
+        rows:
+          - {salesperson_id: SP1, salesperson_name: "Alice", salesperson_office: France}
+    expect:
+      rows:
+        - {opportunity_id: O1, account_office: France, salesperson_name: "Alice", is_valid_account: true, is_won: true, is_closed: true, sales_cycle_days: 30, created_quarter: "2026Q1", closed_quarter: "2026Q1"}
+
+  - name: int_opportunities_enriched_orphan_account
+    description: "Opportunity with an unknown account is flagged invalid and has no office."
+    model: int_opportunities_enriched
+    given:
+      - input: ref('stg_opportunities')
+        rows:
+          - {opportunity_id: O2, account_id: ACC_MISSING, salesperson_id: SP1, created_date: "2026-01-10", closed_date: null, arr: 1000, status: created, lead_source: null, opportunity_type: "new business"}
+      - input: ref('stg_accounts')
+        rows:
+          - {account_id: ACC1, account_name: "Acme", account_office: France}
+      - input: ref('stg_salespeople')
+        rows:
+          - {salesperson_id: SP1, salesperson_name: "Alice", salesperson_office: France}
+    expect:
+      rows:
+        - {opportunity_id: O2, account_office: null, is_valid_account: false, is_won: false, is_closed: false, sales_cycle_days: null, created_quarter: "2026Q1", closed_quarter: null}
+
+  - name: int_activities_per_opportunity_counts
+    description: "Activity totals and per-type counts aggregate correctly."
+    model: int_activities_per_opportunity
+    given:
+      - input: ref('stg_activities')
+        rows:
+          - {activity_id: A1, opportunity_id: O1, activity_type: call, activity_date: "2025-01-01"}
+          - {activity_id: A2, opportunity_id: O1, activity_type: linkedin, activity_date: "2025-01-05"}
+          - {activity_id: A3, opportunity_id: O1, activity_type: meeting_online, activity_date: "2025-01-03"}
+    expect:
+      rows:
+        - {opportunity_id: O1, total_activities: 3, calls: 1, linkedin_touches: 1, meetings_online: 1, meetings_f2f: 0, first_activity_date: "2025-01-01", last_activity_date: "2025-01-05"}

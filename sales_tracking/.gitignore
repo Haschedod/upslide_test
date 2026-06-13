@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Python virtualenv
+.venv/
+
+# dbt artifacts
+logs/
+target/
+dbt_packages/
+
+# DuckDB database files (data, not code)
+*.duckdb
+*.duckdb.wal
