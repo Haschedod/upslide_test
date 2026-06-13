@@ -17,8 +17,8 @@ business-ready data model, and answers the Head of Sales' question:
 
 - Germany's office miss is driven entirely by SP009's zero; SP008 (also selling into Germany) over-delivered and partly offset it.
 
-See [analyses/q1_2026_target_attainment.sql](analyses/q1_2026_target_attainment.sql) and
-[analyses/q1_2026_root_cause_drivers.sql](analyses/q1_2026_root_cause_drivers.sql) for the queries.
+See [sales_tracking/analyses/q1_2026_target_attainment.sql](sales_tracking/analyses/q1_2026_target_attainment.sql) and
+[sales_tracking/analyses/q1_2026_root_cause_drivers.sql](sales_tracking/analyses/q1_2026_root_cause_drivers.sql) for the queries.
 
 ## Architecture
 
@@ -47,7 +47,7 @@ The raw seeds contain deliberate quality issues, all handled in staging and surf
 
 | Issue | Where | Handling |
 |-------|-------|----------|
-| 4 different date formats in `opportunities` (ISO, ISO timestamp, `YYYY/MM/DD`, `DD/MM/YYYY`) | `stg_opportunities` | `clean_date` macro (`macros/clean_date.sql`) coalesces multiple `try_strptime` formats. Fixed ~89 silently-nulled dates. |
+| 4 different date formats in `opportunities` (ISO, ISO timestamp, `YYYY/MM/DD`, `DD/MM/YYYY`) | `stg_opportunities` | `clean_date` macro (`sales_tracking/macros/clean_date.sql`) coalesces multiple `try_strptime` formats. Fixed ~89 silently-nulled dates. |
 | 15 duplicated `activity_id` (30 rows) | `stg_activities` | `qualify row_number()` keeps the earliest record. |
 | 10 opportunities referencing non-existent accounts (`ACC_MISSING_*`) | `int_opportunities_enriched` | Retained and flagged with `is_valid_account`; excluded from office attribution. The staging relationships test is set to `warn` so it stays visible without blocking the pipeline. |
 | Empty strings in `source` / `activity_type` | staging | Converted to `NULL`. |
@@ -84,15 +84,20 @@ duckdb dev.duckdb "select * from mart_office_performance;"
 ## Project layout
 
 ```
-models/
-  staging/        stg_*.sql  + _stg__models.yml  + _stg__unit_tests.yml
-  intermediate/   int_*.sql  + _int__models.yml  + _int__unit_tests.yml
-  marts/
-    core/         dim_*, fct_opportunities, fct_activities + _core__models.yml + _core__unit_tests.yml
-    sales/        fct_target_attainment, mart_office_performance + _sales__models.yml + _sales__unit_tests.yml
-macros/clean_date.sql
-analyses/         q1_2026_*.sql
-seeds/            raw CSVs
+requirements.txt              dbt + reporting dependencies
+reports/
+  generate_dashboards.py      builds slide-ready PNGs from the marts
+sales_tracking/               the dbt project
+  dbt_project.yml
+  models/
+    staging/      stg_*.sql  + _stg__models.yml  + _stg__unit_tests.yml
+    intermediate/ int_*.sql  + _int__models.yml  + _int__unit_tests.yml
+    marts/
+      core/       dim_*, fct_opportunities, fct_activities + _core__models.yml + _core__unit_tests.yml
+      sales/      fct_target_attainment, mart_office_performance + _sales__models.yml + _sales__unit_tests.yml
+  macros/clean_date.sql
+  analyses/       q1_2026_*.sql
+  seeds/          raw CSVs
 ```
 
 ## Reporting (slides)
